@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, StreamingResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from app.agent.loop import Agent  # noqa: E402
+from app.agent.workflows import WORKFLOWS  # noqa: E402
 from app.config import BASE_DIR, settings  # noqa: E402
 from app.core.llm import OllamaClient  # noqa: E402
 from app.monitor.capture import PacketCapture, classify_ip  # noqa: E402
@@ -54,6 +55,12 @@ _capture_lock = threading.Lock()
 class TaskRequest(BaseModel):
     task: str
     attachments: list[str] = []
+
+
+class WorkflowRequest(BaseModel):
+    workflow: str = "inspection_to_approval"
+    document_path: str
+    output_filename: str = "approval_note.docx"
 
 
 class RouteRequest(BaseModel):
@@ -171,6 +178,45 @@ async def run_task_stream(req: TaskRequest):
     return StreamingResponse(events(), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no"})
+
+
+@app.get("/api/workflows")
+def list_workflows():
+    return {"workflows": [
+        {"name": n, "description": (c.__doc__ or "").strip().split("\n")[0]}
+        for n, c in WORKFLOWS.items()]}
+
+
+@app.post("/api/workflow")
+def run_workflow(req: WorkflowRequest):
+    cls = WORKFLOWS.get(req.workflow)
+    if cls is None:
+        raise HTTPException(404, f"unknown workflow '{req.workflow}'. "
+                                 f"Available: {', '.join(WORKFLOWS)}")
+    wf = cls(CLIENT, REGISTRY, TOOLBOX)
+    run = wf.run(req.document_path, req.output_filename)
+    return run.as_dict()
+
+
+@app.get("/api/kb/status")
+def kb_status():
+    from app.rag.store import VectorStore
+    return VectorStore().stats()
+
+
+@app.post("/api/kb/reindex")
+def kb_reindex():
+    from app.rag.answer import KnowledgeBase
+    kb = KnowledgeBase()
+    kb.store.clear()
+    results = kb.index_directory(BASE_DIR / "data" / "kb")
+    return {"indexed": results, "stats": kb.store.stats()}
+
+
+@app.post("/api/kb/ask")
+def kb_ask(req: RouteRequest):
+    from app.rag.answer import KnowledgeBase
+    return KnowledgeBase().ask(req.task).as_dict()
 
 
 @app.get("/api/monitor/egress")
