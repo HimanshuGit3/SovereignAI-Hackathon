@@ -13,3 +13,6 @@ pytesseract==0.3.13
 Pillow==11.0.0
 docker==7.1.0
 rich==13.9.4
+python-multipart==0.0.20
+sse-starlette==2.2.1
+numpy==2.2.1

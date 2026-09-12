@@ -44,6 +44,9 @@ RULES
   create_word_document. Populate it from data you actually retrieved.
 - Quote figures exactly as they appear in the source. Do not round or
   paraphrase measurements.
+- For anything about company policy, approval authority, limits, setpoints
+  or lead times, call search_knowledge_base. Never state an organisational
+  requirement from your own knowledge.
 - When the task is complete, reply with a plain summary and no tool call.
 
 Work in small steps. One tool call at a time."""
@@ -116,12 +119,15 @@ class Agent:
         return self.registry.by_role("general")
 
     TOOLS_BY_TASK = {
-        "chat": ["list_files", "read_document"],
-        "document": ["list_files", "read_document", "engineering_calculation",
-                     "create_word_document", "write_text_file"],
+        "chat": ["search_knowledge_base", "knowledge_base_status",
+                 "list_files", "read_document"],
+        "document": ["read_document", "search_knowledge_base", "list_files",
+                     "engineering_calculation", "create_word_document",
+                     "write_text_file"],
         "code": ["engineering_calculation", "run_python", "generate_code",
                  "write_text_file"],
-        "vision": ["list_files", "read_document", "create_word_document"],
+        "vision": ["read_document", "search_knowledge_base", "list_files",
+                   "create_word_document"],
     }
 
     def _tools_for(self, task_type: str) -> list[dict]:
