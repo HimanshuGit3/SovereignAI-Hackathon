@@ -33,13 +33,32 @@ enable_airgap() {
     firewall-cmd --direct --add-rule ipv4 filter OUTPUT 4 \
         -d 192.168.59.1 -p tcp --dport 11434 -j ACCEPT 2>/dev/null
 
-    echo "[4/4] rejecting all other public destinations"
+    echo "[4/6] blocking container egress to public networks"
+    # Container traffic leaves via the docker bridge and traverses FORWARD,
+    # not OUTPUT, so the host rules above do not cover it. Without these
+    # the workbench container could reach the internet while the host
+    # cannot - a hole a reviewer would be right to find.
+    firewall-cmd --direct --add-rule ipv4 filter FORWARD 0 \
+        -d 10.0.2.2 -p tcp --dport 11434 -j ACCEPT 2>/dev/null
+    firewall-cmd --direct --add-rule ipv4 filter FORWARD 1 \
+        -d 192.168.59.1 -p tcp --dport 11434 -j ACCEPT 2>/dev/null
+    firewall-cmd --direct --add-rule ipv4 filter FORWARD 2 \
+        -p udp --dport 53 -j REJECT 2>/dev/null
+    firewall-cmd --direct --add-rule ipv4 filter FORWARD 3 \
+        -p tcp --dport 53 -j REJECT 2>/dev/null
+    for net in 0.0.0.0/5 8.0.0.0/7 11.0.0.0/8 128.0.0.0/3; do
+        firewall-cmd --direct --add-rule ipv4 filter FORWARD 10 \
+            -d "$net" -j REJECT 2>/dev/null
+    done
+
+    echo "[5/6] rejecting all other public destinations"
     for net in 0.0.0.0/5 8.0.0.0/7 11.0.0.0/8 128.0.0.0/3; do
         firewall-cmd --direct --add-rule ipv4 filter OUTPUT 10 \
             -d "$net" -j REJECT 2>/dev/null
     done
+    echo "[6/6] done"
     echo
-    echo "AIR-GAP ENFORCED"
+    echo "AIR-GAP ENFORCED (host OUTPUT chain and container FORWARD chain)"
 }
 
 disable_airgap() {
@@ -71,6 +90,19 @@ show_status() {
     timeout 4 bash -c "</dev/tcp/10.0.2.2/11434" 2>/dev/null \
         && echo "  TCP  inference    reachable (correct)" \
         || echo "  TCP  inference    UNREACHABLE <-- workbench will fail"
+
+    if docker ps --format "{{.Names}}" 2>/dev/null | grep -q sovereign-workbench; then
+        echo
+        echo "=== container egress test ==="
+        docker exec sovereign-workbench timeout 4 \
+            curl -s -o /dev/null http://8.8.8.8/ 2>/dev/null \
+            && echo "  container -> 8.8.8.8   REACHABLE <-- leak" \
+            || echo "  container -> 8.8.8.8   blocked"
+        docker exec sovereign-workbench timeout 4 \
+            curl -fs -o /dev/null http://10.0.2.2:11434/api/tags 2>/dev/null \
+            && echo "  container -> inference reachable (correct)" \
+            || echo "  container -> inference UNREACHABLE <-- workbench will fail"
+    fi
 }
 
 case "${1:-status}" in

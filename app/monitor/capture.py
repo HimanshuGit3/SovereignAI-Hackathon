@@ -159,6 +159,23 @@ class PacketCapture:
     def available() -> bool:
         return shutil.which("tcpdump") is not None
 
+    @staticmethod
+    def in_container() -> bool:
+        """Detect whether we are inside a container.
+
+        Matters because container network namespaces are isolated: tcpdump
+        here sees only this container's own traffic, never the host's. A
+        capture run from inside a container cannot prove anything about
+        host egress and must not be presented as if it could.
+        """
+        from pathlib import Path as _P
+        if _P("/.dockerenv").exists():
+            return True
+        try:
+            return "docker" in _P("/proc/1/cgroup").read_text()
+        except OSError:
+            return False
+
     def start(self) -> bool:
         if not self.available():
             self.error = "tcpdump not installed (dnf install -y tcpdump)"
@@ -197,8 +214,13 @@ class PacketCapture:
         if self._thread:
             self._thread.join(timeout=3)
 
+        err = self.error
+        if self.in_container() and not err:
+            err = ("running inside a container: this capture observes only "
+                   "the container network namespace, not host interfaces. "
+                   "Run tests/demo.py on the host for a host-wide capture.")
         report = CaptureReport(duration_s=duration, interfaces=self.interface,
-                               error=self.error)
+                               error=err)
         report.raw_lines = len(self._lines)
         for line in self._lines:
             m = LINE_RE.search(line)
