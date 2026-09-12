@@ -1,0 +1,68 @@
+version: 1
+
+defaults:
+  provider: ollama
+  timeout_seconds: 300
+  options:
+    temperature: 0.2
+    num_ctx: 8192
+
+models:
+  - id: router-tiny
+    name: qwen3.5:0.8b
+    role: router
+    capabilities: [text, tools]
+    size_gb: 1.0
+    options:
+      temperature: 0.0
+      num_ctx: 4096
+    description: Fast intent classifier. Never produces user-facing answers.
+
+  - id: general
+    name: qwen3.5:2b-q4_K_M
+    role: general
+    capabilities: [text, reasoning, tools, vision]
+    size_gb: 1.6
+    options:
+      temperature: 0.3
+      num_ctx: 16384
+    description: Document summarisation, drafting, approval notes, agent planning.
+
+  - id: coder
+    name: qwen2.5-coder:3b
+    role: code
+    capabilities: [text, code, tools]
+    size_gb: 1.9
+    options:
+      temperature: 0.1
+      num_ctx: 16384
+    description: Code generation and debugging for sandbox execution.
+
+  - id: vision
+    name: gemma3:4b
+    role: vision
+    capabilities: [text, image]
+    size_gb: 3.3
+    options:
+      temperature: 0.2
+      num_ctx: 8192
+    description: Scanned reports, P&IDs, photographs, handwritten notes.
+
+  - id: embedder
+    name: nomic-embed-text
+    role: embedding
+    capabilities: [embedding]
+    size_gb: 0.3
+    max_input_tokens: 2048
+    options: {}
+    description: Vector embeddings for the local knowledge base.
+
+routing:
+  rules:
+    - when: {has_image: true}
+      use: vision
+    - when: {task: code}
+      use: coder
+    - when: {task: embedding}
+      use: embedder
+  fallback: general
