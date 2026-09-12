@@ -32,6 +32,9 @@ CHAT_SIGNALS = [
     (r"^\s*(what|who|when|where|why|which)\s+(is|are|was|were|does|do|did)\b", 3.0),
     (r"^\s*(tell me about|explain|describe|define)\s+\w+\s*\??\s*$", 3.0),
     (r"^\s*(hi|hello|hey|thanks|thank you)\b", 3.0),
+    (r"\b(what|which|list)\b.{0,30}\b(files?|documents?|folders?)\b.{0,30}"
+     r"\b(available|in|under|inside)\b", 3.0),
+    (r"^\s*(list|show)\s+(the\s+)?(files?|contents)\b", 3.0),
     (r"\?\s*$", 0.5),
 ]
 

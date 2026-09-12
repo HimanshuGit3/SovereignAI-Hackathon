@@ -37,6 +37,7 @@ class OllamaClient:
         options: dict | None = None,
         think: bool | None = None,
         keep_alive: str | int | None = None,
+        tools: list[dict] | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": model,
@@ -45,6 +46,8 @@ class OllamaClient:
         }
         if keep_alive is not None:
             payload["keep_alive"] = keep_alive
+        if tools:
+            payload["tools"] = tools
         if options:
             payload["options"] = options
         if think is not None:
@@ -56,9 +59,24 @@ class OllamaClient:
 
         data = r.json()
         msg = data.get("message", {})
+
+        calls = []
+        for tc in msg.get("tool_calls") or []:
+            fn = tc.get("function", {})
+            args = fn.get("arguments", {})
+            if isinstance(args, str):
+                import json as _json
+                try:
+                    args = _json.loads(args)
+                except _json.JSONDecodeError:
+                    args = {"_raw": args}
+            calls.append({"name": fn.get("name", ""), "arguments": args or {}})
+
         return {
             "content": msg.get("content", ""),
             "thinking": msg.get("thinking", ""),
+            "tool_calls": calls,
+            "raw_message": msg,
             "model": data.get("model", model),
             "eval_count": data.get("eval_count", 0),
             "total_duration_ms": round(data.get("total_duration", 0) / 1e6),

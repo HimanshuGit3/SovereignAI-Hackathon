@@ -3,10 +3,10 @@ from app.tools.base import ToolBox, ToolResult, ToolSpec
 
 
 def build_toolbox() -> ToolBox:
-    from app.tools import documents, files, sandbox
+    from app.tools import codegen, documents, engineering, files, sandbox
 
     box = ToolBox()
-    for module in (files, documents, sandbox):
+    for module in (files, documents, sandbox, codegen, engineering):
         for spec in module.SPECS:
             box.register(spec)
     return box

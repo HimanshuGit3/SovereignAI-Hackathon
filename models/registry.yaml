@@ -21,7 +21,7 @@ models:
   - id: general
     name: qwen3.5:2b-q4_K_M
     role: general
-    capabilities: [text, reasoning, tools, vision]
+    capabilities: [text, reasoning, tools, vision, orchestrator]
     size_gb: 1.6
     options:
       temperature: 0.3
@@ -31,12 +31,14 @@ models:
   - id: coder
     name: qwen2.5-coder:3b
     role: code
-    capabilities: [text, code, tools]
+    capabilities: [text, code]
     size_gb: 1.9
     options:
       temperature: 0.1
       num_ctx: 8192
-    description: Code generation and debugging for sandbox execution.
+    description: Code generation only. Tested 2026-09-12 - emits tool calls
+      as plain text rather than native tool_calls, so it cannot drive the
+      agent loop. Used as a delegate for code generation.
 
   - id: vision
     name: qwen3.5:2b-q4_K_M
