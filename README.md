@@ -111,3 +111,25 @@ Models to pull on the inference host:
 ## Team
 
 Team Blunder, Smart India Hackathon 2026
+
+## Running with Docker
+
+    ./start.sh      # detects Ollama, builds the sandbox image, starts everything
+    ./stop.sh
+
+Ollama and the model weights stay on the host. The container packages the
+application, OCR, PDF tooling and the Docker CLI only.
+
+### A note on the Docker socket
+
+The workbench creates sandbox containers to execute model-written code, so
+`/var/run/docker.sock` is mounted into the application container. This is
+root-equivalent access to the host daemon and would be unacceptable in a
+multi-tenant deployment.
+
+It is acceptable here because the system is single-tenant and air-gapped:
+the only code reaching the daemon is the workbench's own sandbox invocation,
+which is fixed in `app/tools/sandbox.py` and always creates containers with
+`network_mode=none`, a read-only root filesystem and all capabilities
+dropped. A hardened deployment would replace this with a rootless Docker
+socket proxy restricted to container create, start, wait and remove.

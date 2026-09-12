@@ -1,0 +1,36 @@
+services:
+  workbench:
+    build: .
+    image: sovereign-workbench:latest
+    container_name: sovereign-workbench
+    ports:
+      - "8080:8080"
+    environment:
+      # Point this at wherever Ollama runs on YOUR machine.
+      # Linux host: http://172.17.0.1:11434
+      # Docker Desktop (Win/Mac): http://host.docker.internal:11434
+      # VirtualBox VM reaching the Windows host: http://10.0.2.2:11434
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://172.17.0.1:11434}
+      MODEL_REGISTRY_PATH: ./models/registry.yaml
+      SANDBOX_IMAGE: sovereign-sandbox:latest
+      SANDBOX_TIMEOUT: "30"
+    volumes:
+      # Knowledge base, samples and outputs persist on the host so they
+      # survive a rebuild and are visible without entering the container.
+      - ./data/kb:/app/data/kb
+      - ./data/samples:/app/data/samples
+      - ./data/uploads:/app/data/uploads
+      - ./data/vectorstore:/app/data/vectorstore
+      - ./outputs:/app/outputs
+      # The app creates sandbox containers. It therefore needs the host
+      # Docker daemon. This grants root-equivalent access to the host and
+      # is acceptable ONLY because the whole system is air-gapped and
+      # single-tenant. See docs/architecture.md.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Required for the tcpdump-based egress monitor.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
