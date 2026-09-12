@@ -35,6 +35,10 @@ RULES
   Those use verified code with correct unit handling. Never compute them
   with run_python or in your head.
 - For other arithmetic, call run_python and print the result.
+- engineering_calculation parameter names are EXACT. Copy them from the
+  tool description. Do not rename or expand them.
+- generate_code is for multi-step programs only, never for a formula that
+  engineering_calculation already covers.
 - Report units EXACTLY as the tool returns them. Never relabel a result.
 - When asked for a Word file, approval note or office note, call
   create_word_document. Populate it from data you actually retrieved.
@@ -115,7 +119,7 @@ class Agent:
         "chat": ["list_files", "read_document"],
         "document": ["list_files", "read_document", "engineering_calculation",
                      "create_word_document", "write_text_file"],
-        "code": ["engineering_calculation", "generate_code", "run_python",
+        "code": ["engineering_calculation", "run_python", "generate_code",
                  "write_text_file"],
         "vision": ["list_files", "read_document", "create_word_document"],
     }
