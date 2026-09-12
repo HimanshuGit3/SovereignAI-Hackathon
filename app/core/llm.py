@@ -70,11 +70,16 @@ class OllamaClient:
         prompt: str,
         image_path: str | Path,
         options: dict | None = None,
+        think: bool | None = False,
+        keep_alive: str | int | None = None,
     ) -> dict[str, Any]:
         raw = Path(image_path).read_bytes()
         b64 = base64.b64encode(raw).decode("ascii")
         messages = [{"role": "user", "content": prompt, "images": [b64]}]
-        return self.chat(model, messages, options=options)
+        return self.chat(
+            model, messages, options=options,
+            think=think, keep_alive=keep_alive,
+        )
 
     def embed(self, model: str, text: str | list[str]) -> list[list[float]]:
         r = self._client.post(

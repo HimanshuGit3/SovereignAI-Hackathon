@@ -35,18 +35,28 @@ models:
     size_gb: 1.9
     options:
       temperature: 0.1
-      num_ctx: 16384
+      num_ctx: 8192
     description: Code generation and debugging for sandbox execution.
 
   - id: vision
-    name: gemma3:4b
+    name: qwen3.5:2b-q4_K_M
     role: vision
+    capabilities: [text, image]
+    size_gb: 1.6
+    options:
+      temperature: 0.1
+      num_ctx: 8192
+    description: Scanned reports, P&IDs, photographs, handwritten notes.
+
+  - id: vision-alt
+    name: gemma3:4b
+    role: vision-alt
     capabilities: [text, image]
     size_gb: 3.3
     options:
       temperature: 0.2
       num_ctx: 8192
-    description: Scanned reports, P&IDs, photographs, handwritten notes.
+    description: Alternate VLM. Swap in by changing role to 'vision'. Runs 44% GPU on 4GB cards.
 
   - id: embedder
     name: nomic-embed-text
