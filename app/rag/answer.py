@@ -15,12 +15,19 @@ import time
 from dataclasses import dataclass, field
 
 from app.core.llm import OllamaClient
+from app.rag.hybrid import HybridRetriever
 from app.rag.store import Chunk, VectorStore
 from app.router.registry import ModelRegistry
 
-# A genuine match scores ~0.65-0.80 against this corpus; adjacent-but-wrong
-# chunks land around 0.50. Below this we decline rather than guess.
-CONFIDENCE_FLOOR = 0.58
+# Swept against 10 covered and 8 uncovered questions on a 20-chunk
+# corpus (tests/test_threshold.py). The two classes overlap slightly, so
+# no threshold separates them perfectly; this value favours refusing a
+# borderline question over answering it wrongly.
+#
+# This number is fitted to a small corpus. Re-run the sweep after adding
+# documents: score distributions shift as a corpus grows, and a floor
+# tuned on 20 chunks is not evidence of anything at 20,000.
+CONFIDENCE_FLOOR = 0.62
 
 SYSTEM = """You answer questions using ONLY the organisation's own documents.
 
@@ -74,13 +81,17 @@ class KnowledgeBase:
                  client: OllamaClient | None = None,
                  registry: ModelRegistry | None = None):
         self.store = store or VectorStore()
+        self.retriever = HybridRetriever(self.store)
         self.client = client or OllamaClient()
         self.registry = registry or ModelRegistry()
 
     def ask(self, question: str, k: int = 4) -> GroundedAnswer:
         t0 = time.perf_counter()
-        hits = self.store.search(question, k=k)
-        top = hits[0].score if hits else 0.0
+        scored = self.retriever.search(question, k=k)
+        hits = [s.chunk for s in scored]
+        # Confidence comes from dense/BM25, not the RRF score: see
+        # HybridRetriever.confidence for why.
+        top = self.retriever.confidence(scored, question)
 
         if not hits or top < CONFIDENCE_FLOOR:
             return GroundedAnswer(

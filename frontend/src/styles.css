@@ -1,0 +1,963 @@
+/* SovereignAI Workbench
+   Surface metaphor: a drafting sheet with a control-room instrument
+   panel inset into it. Colour is process-state semantics borrowed from
+   plant practice, never decoration.
+   No web fonts: the deployment is air-gapped, so system stacks only. */
+
+:root {
+  /* sheet */
+  --sheet:      #f6f7f5;
+  --sheet-2:    #eef0ec;
+  --sheet-3:    #e4e7e1;
+  --ink:        #1a1d1c;
+  --ink-2:      #4a514c;
+  --ink-3:      #7b837c;
+  --rule:       #c9cdc6;
+  --rule-soft:  #dfe3dc;
+
+  /* instrument panel */
+  --panel:      #14181a;
+  --panel-2:    #1e2428;
+  --panel-ink:  #dfe5e2;
+  --panel-dim:  #7f8b88;
+  --panel-rule: #2c353a;
+
+  /* process state */
+  --service:    #2d6a4f;
+  --service-lt: #e3efe8;
+  --alarm:      #b45309;
+  --alarm-lt:   #fcf0e3;
+  --trip:       #9b2226;
+  --trip-lt:    #fbeaea;
+  --blueprint:  #1d4e89;
+  --blue-lt:    #e6edf6;
+
+  /* type */
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --mono: "Cascadia Mono", "SF Mono", Consolas, "DejaVu Sans Mono", monospace;
+
+  --t-xs: 11px; --t-sm: 12.5px; --t-md: 14px;
+  --t-lg: 17px; --t-xl: 21px; --t-2xl: 27px;
+
+  /* spacing, 4px base */
+  --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px;
+
+  --r: 2px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--sheet-2);
+  color: var(--ink);
+  font: var(--t-md)/1.55 var(--ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--blue-lt); }
+
+:focus-visible {
+  outline: 2px solid var(--blueprint);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+/* scrollbars: thin, inked, not decorative */
+* { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 0; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- sheet frame -------------------------------------------------
+   A drawing sheet has a double border and a title block. Both carry
+   information here rather than ornament: the outer frame bounds the
+   work area, the title block states what this sheet is and its state. */
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  outline: 4px solid var(--sheet-2);
+  outline-offset: -6px;
+}
+
+.titleblock {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--ink);
+  background: var(--sheet);
+  flex: 0 0 auto;
+}
+
+.tb-cell {
+  padding: var(--s2) var(--s4);
+  border-right: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.tb-cell:last-child { border-right: 0; }
+.tb-grow { flex: 1; }
+
+.tb-name {
+  font-size: var(--t-lg);
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.tb-sub {
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  letter-spacing: 0.01em;
+}
+
+.tb-key {
+  font-size: 9.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 1px;
+}
+
+.tb-val {
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* ---- navigation: tabs as sheet index ---- */
+
+.nav {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet-2);
+  flex: 0 0 auto;
+  padding: 0 var(--s3);
+}
+
+.nav button {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: var(--s3) var(--s4);
+  font: 500 var(--t-sm)/1 var(--ui);
+  color: var(--ink-2);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+}
+
+.nav button:hover { color: var(--ink); }
+
+.nav button[aria-current="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--blueprint);
+  font-weight: 600;
+}
+
+.nav .count {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  margin-left: var(--s2);
+}
+
+main { flex: 1; min-height: 0; display: flex; }
+
+/* ---- instrument panel --------------------------------------------
+   The one dark surface. Inset into the sheet like a control-room
+   readout set into a desk. Colour here is process state only:
+   green in service, amber attention, red trip. */
+
+.panel {
+  background: var(--panel);
+  color: var(--panel-ink);
+  border: 1px solid var(--panel);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--panel-rule);
+}
+
+.panel-head h3 {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.panel-head .note {
+  font-size: var(--t-xs);
+  color: var(--panel-dim);
+  margin-left: auto;
+  font-family: var(--mono);
+}
+
+.panel-body { padding: var(--s4); }
+
+/* the reading: one large number, the way a gauge shows one value */
+.reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s4) var(--s4) var(--s3);
+}
+
+.reading .value {
+  font-family: var(--mono);
+  font-size: 44px;
+  line-height: 0.9;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.reading .unit {
+  font-size: var(--t-sm);
+  color: var(--panel-dim);
+  line-height: 1.3;
+}
+
+.reading.state-service .value { color: #57d191; }
+.reading.state-trip    .value { color: #ff6b6b; }
+
+/* lamp: a single indicator, as on a panel */
+.lamp {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--t-xs);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.lamp::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.lamp.on   { color: #57d191; }
+.lamp.warn { color: #e8a33d; }
+.lamp.off  { color: #ff6b6b; }
+.lamp.idle { color: var(--panel-dim); }
+
+.panel .rowlist {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  line-height: 1.9;
+  color: var(--panel-dim);
+}
+
+.panel .rowlist b { color: var(--panel-ink); font-weight: 500; }
+
+/* ---- controls ---- */
+
+.btn {
+  appearance: none;
+  font: 560 var(--t-sm)/1 var(--ui);
+  padding: 10px var(--s4);
+  border: 1px solid var(--ink);
+  border-radius: var(--r);
+  background: var(--ink);
+  color: var(--sheet);
+  cursor: pointer;
+  letter-spacing: 0.005em;
+  transition: background .12s ease;
+}
+
+.btn:hover:not(:disabled) { background: #000; }
+
+.btn:disabled {
+  background: var(--sheet-3);
+  border-color: var(--rule);
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+.btn.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--rule);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: var(--sheet-2);
+  border-color: var(--ink-3);
+}
+
+.btn.sm { padding: 6px 11px; font-size: var(--t-xs); }
+
+textarea, input[type="text"] {
+  width: 100%;
+  font: var(--t-md)/1.5 var(--ui);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  padding: var(--s3);
+  resize: vertical;
+}
+
+textarea:focus, input[type="text"]:focus {
+  outline: 0;
+  border-color: var(--blueprint);
+  box-shadow: 0 0 0 3px var(--blue-lt);
+}
+
+textarea::placeholder { color: var(--ink-3); }
+
+/* preset chips: shortcuts, not decoration */
+.chip {
+  appearance: none;
+  font: var(--t-xs)/1 var(--ui);
+  padding: 7px 11px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.chip:hover { border-color: var(--blueprint); color: var(--blueprint); }
+
+/* tag: a technical identifier, always monospace */
+.tag {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  padding: 2px 6px;
+  border-radius: var(--r);
+  background: var(--sheet-2);
+  border: 1px solid var(--rule-soft);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.tag.service { background: var(--service-lt); border-color: #bcd9c9; color: var(--service); }
+.tag.alarm   { background: var(--alarm-lt);   border-color: #eccfae; color: var(--alarm); }
+.tag.trip    { background: var(--trip-lt);    border-color: #e8c2c2; color: var(--trip); }
+.tag.info    { background: var(--blue-lt);    border-color: #c3d3e8; color: var(--blueprint); }
+
+/* ---- layout zones ---- */
+
+.col { display: flex; flex-direction: column; min-height: 0; }
+.scroll { overflow-y: auto; min-height: 0; }
+.pad { padding: var(--s5); }
+.stack > * + * { margin-top: var(--s3); }
+.row { display: flex; gap: var(--s2); align-items: center; }
+.spread { display: flex; gap: var(--s3); align-items: center; justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+.wrap { display: flex; flex-wrap: wrap; gap: var(--s2); }
+
+.rail {
+  width: 260px;
+  flex: 0 0 260px;
+  border-right: 1px solid var(--rule);
+  background: var(--sheet-2);
+}
+
+.rail-r {
+  width: 330px;
+  flex: 0 0 330px;
+  border-right: 0;
+  border-left: 1px solid var(--rule);
+  background: var(--sheet-2);
+}
+
+.zone { border-top: 1px solid var(--rule-soft); padding-top: var(--s3); }
+.zone:first-child { border-top: 0; padding-top: 0; }
+
+.zone-h {
+  font-size: var(--t-xs);
+  font-weight: 650;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  margin-bottom: var(--s2);
+}
+
+.muted { color: var(--ink-3); font-size: var(--t-sm); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ---- step trace ---------------------------------------------------
+   Numbered because the agent genuinely executes a sequence. The rule
+   on the left is the through-line of the run. */
+
+.trace { position: relative; padding-left: var(--s5); }
+
+.trace::before {
+  content: "";
+  position: absolute;
+  left: 9px; top: 6px; bottom: 6px;
+  width: 1px;
+  background: var(--rule);
+}
+
+.step { position: relative; margin-bottom: var(--s3); }
+
+.step .marker {
+  position: absolute;
+  left: calc(var(--s5) * -1);
+  top: 3px;
+  width: 19px; height: 19px;
+  border-radius: 50%;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  color: var(--ink-2);
+  font: 600 10px/17px var(--mono);
+  text-align: center;
+}
+
+.step.err .marker    { border-color: var(--trip); color: var(--trip); }
+.step.final .marker  { border-color: var(--service); color: var(--service); background: var(--service-lt); }
+
+.step-head { display: flex; align-items: baseline; gap: var(--s2); }
+.step-head .name { font-family: var(--mono); font-size: var(--t-sm); font-weight: 600; }
+.step-head .t { margin-left: auto; font-family: var(--mono); font-size: var(--t-xs); color: var(--ink-3); }
+
+.obs {
+  font-family: var(--mono);
+  font-size: var(--t-xs);
+  line-height: 1.6;
+  color: var(--ink-2);
+  background: var(--sheet-2);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r);
+  padding: var(--s2) var(--s3);
+  margin-top: var(--s2);
+  white-space: pre-wrap;
+  max-height: 190px;
+  overflow: auto;
+}
+
+.answer {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--service);
+  border-radius: var(--r);
+  background: #fff;
+  padding: var(--s4);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.artifact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  font-family: var(--mono);
+  font-size: var(--t-sm);
+  padding: 9px var(--s3);
+  border: 1px solid var(--service);
+  border-radius: var(--r);
+  background: var(--service-lt);
+  color: var(--service);
+  text-decoration: none;
+  margin-top: var(--s2);
+}
+
+.artifact:hover { background: #d6e9de; }
+
+.empty {
+  border: 1px dashed var(--rule);
+  border-radius: var(--r);
+  padding: var(--s6) var(--s4);
+  text-align: center;
+  color: var(--ink-3);
+  font-size: var(--t-sm);
+}
+
+/* the instrument rail overrides the light rail surface entirely */
+.rail-r.panel {
+  background: var(--panel);
+  border-left: 1px solid var(--panel);
+  overflow-y: auto;
+  padding: 0;
+}
+
+.rail-r.panel .lamp::before { width: 6px; height: 6px; }
+.rail-r.panel .row { gap: var(--s2); }
+
+/* upload target in the left rail */
+.drop {
+  border: 1px dashed var(--rule);
+  border-radius: var(--r);
+  padding: var(--s4) var(--s3);
+  text-align: center;
+  font-size: var(--t-xs);
+  color: var(--ink-3);
+  cursor: pointer;
+  background: #fff;
+}
+
+.drop:hover, .drop.over {
+  border-color: var(--blueprint);
+  color: var(--blueprint);
+  background: var(--blue-lt);
+}
+
+.drop input { display: none; }
+
+.filerow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: 5px 0;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--rule-soft);
+  cursor: pointer;
+}
+
+.filerow:last-child { border-bottom: 0; }
+.filerow:hover .fname { color: var(--blueprint); }
+.fname { font-family: var(--mono); font-size: var(--t-xs); }
+
+/* ---- hero: the flagship transformation, shown not described ---- */
+
+.hero { padding: var(--s6) var(--s5) var(--s5); }
+
+.hero-line {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1fr;
+  gap: var(--s5);
+  align-items: center;
+  max-width: 940px;
+  margin: 0 auto;
+}
+
+.sheet-thumb { margin: 0; }
+
+.sheet-thumb img,
+.sheet-thumb .doc-face {
+  display: block;
+  width: 100%;
+  aspect-ratio: 10 / 9;
+  object-fit: cover;
+  object-position: top center;
+  background: #fff;
+  border: 1px solid var(--rule);
+  box-shadow: 3px 3px 0 var(--sheet-3);
+}
+
+.sheet-thumb figcaption {
+  margin-top: var(--s2);
+  font-size: var(--t-xs);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+.sheet-thumb figcaption span {
+  font-family: var(--mono);
+  color: var(--ink-3);
+}
+
+.doc-face { padding: 16px 14px; display: flex; flex-direction: column; gap: 9px; }
+.doc-rule { height: 5px; background: var(--sheet-3); border-radius: 1px; }
+.doc-rule.w70 { width: 70%; } .doc-rule.w40 { width: 40%; }
+.doc-rule.w85 { width: 85%; } .doc-rule.w60 { width: 60%; }
+.doc-rule.strong { background: var(--ink-3); height: 6px; }
+.doc-sign { margin-top: auto; height: 1px; width: 55%; background: var(--ink-3); }
+
+.hero-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--rule-soft);
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+.flow-step {
+  background: var(--sheet);
+  padding: 9px var(--s3);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+
+.flow-step b { font-size: var(--t-sm); font-weight: 620; min-width: 92px; }
+.flow-step span { font-size: var(--t-xs); color: var(--ink-3); }
+
+.hero-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  justify-content: center;
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--rule-soft);
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* the output preview mirrors the real .docx: same structure, same
+   figures, so the promise on screen matches the file produced */
+
+.doc-face {
+  padding: 13px 13px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+}
+
+.doc-title {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.doc-meta {
+  font-family: var(--mono);
+  font-size: 6.5px;
+  color: var(--ink-3);
+  text-align: center;
+}
+
+.doc-h {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-top: 3px;
+}
+
+.doc-list { margin: 0; padding-left: 12px; }
+.doc-list li { font-size: 7px; line-height: 1.55; color: var(--ink-2); }
+.doc-body { font-size: 7px; line-height: 1.55; color: var(--ink-2); }
+.doc-cite { display: block; font-family: var(--mono); font-size: 6px; color: var(--blueprint); }
+
+.doc-sign {
+  margin-top: auto;
+  height: 1px;
+  width: 52%;
+  background: var(--ink-3);
+}
+
+/* flow direction: the sheet becomes a note, and the middle column is
+   how. Chevrons sit in the gutters so the reading order is explicit. */
+
+.hero-line { position: relative; }
+
+.hero-line::before,
+.hero-line::after {
+  content: "";
+  position: absolute;
+  top: 42%;
+  width: 9px;
+  height: 9px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(-45deg);
+}
+
+.hero-line::before { left: calc(33.3% - 14px); }
+.hero-line::after  { right: calc(33.3% - 14px); }
+
+@media (max-width: 1450px) {
+  .hero-line::before, .hero-line::after { display: none; }
+}
+
+/* ---- the scan ----------------------------------------------------
+   A bar of light crossing the sheet, the way a flatbed scanner reads
+   a drawing. The only large motion in the product. */
+
+.scanframe { position: relative; overflow: hidden; line-height: 0; }
+
+.scanline {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 26%;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(29, 78, 137, 0) 0%,
+    rgba(29, 78, 137, .10) 55%,
+    rgba(29, 78, 137, .22) 92%,
+    var(--blueprint) 100%
+  );
+}
+
+.scanframe.scanning .scanline {
+  animation: sweep 1.5s cubic-bezier(.5, 0, .5, 1) forwards;
+}
+
+@keyframes sweep {
+  0%   { opacity: 0; transform: translateY(-26%); }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(400%); }
+}
+
+/* ---- stages igniting in sequence ---- */
+
+.hero-flow { list-style: none; margin: 0; padding: 0; }
+
+.flow-step {
+  position: relative;
+  background: var(--sheet);
+  padding: 10px var(--s3) 10px 30px;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  transition: background .35s ease;
+}
+
+.flow-dot {
+  position: absolute;
+  left: 12px; top: 15px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  transition: background .3s ease, border-color .3s ease;
+}
+
+.flow-step b {
+  font-size: var(--t-sm);
+  font-weight: 620;
+  min-width: 62px;
+  color: var(--ink-3);
+  transition: color .3s ease;
+}
+
+.flow-step span:not(.flow-dot) { font-size: var(--t-xs); color: var(--ink-3); }
+
+.flow-step.done b { color: var(--ink); }
+.flow-step.done .flow-dot { background: var(--service); border-color: var(--service); }
+
+.flow-step.live { background: var(--blue-lt); }
+.flow-step.live b { color: var(--blueprint); }
+.flow-step.live .flow-dot {
+  background: var(--blueprint);
+  border-color: var(--blueprint);
+  animation: throb 1.5s ease-in-out infinite;
+}
+
+@keyframes throb {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29,78,137,.45); }
+  55%      { box-shadow: 0 0 0 5px rgba(29,78,137,0); }
+}
+
+/* ---- the note assembling ---- */
+
+.doc-face > * {
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity .45s ease, transform .45s ease;
+}
+
+.doc-face.written > * { opacity: 1; transform: none; }
+.doc-face.written > *:nth-child(1) { transition-delay: .02s; }
+.doc-face.written > *:nth-child(2) { transition-delay: .10s; }
+.doc-face.written > *:nth-child(3) { transition-delay: .18s; }
+.doc-face.written > *:nth-child(4) { transition-delay: .26s; }
+.doc-face.written > *:nth-child(5) { transition-delay: .34s; }
+.doc-face.written > *:nth-child(6) { transition-delay: .42s; }
+.doc-face.written > *:nth-child(7) { transition-delay: .52s; }
+
+/* ---- the mark: plotted, not drawn ---- */
+
+.mark { flex: 0 0 auto; overflow: visible; }
+
+.mark line, .mark rect, .mark circle {
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.mark .m-line   { stroke-dasharray: 36; stroke-dashoffset: 36;
+                  animation: plot .5s ease-out .05s forwards; }
+.mark .m-eq     { stroke-dasharray: 48; stroke-dashoffset: 48;
+                  animation: plot .4s ease-out .30s forwards; }
+.mark .m-bubble { stroke-dasharray: 48; stroke-dashoffset: 48;
+                  animation: plot .5s ease-out .46s forwards; }
+.mark .m-core   { fill: var(--blueprint); stroke: none;
+                  opacity: 0; transform-origin: 29.5px 20px;
+                  animation: ignite .4s cubic-bezier(.2,1.6,.4,1) .82s forwards; }
+
+@keyframes plot   { to { stroke-dashoffset: 0; } }
+@keyframes ignite { from { opacity: 0; transform: scale(.2); }
+                    to   { opacity: 1; transform: scale(1); } }
+
+/* ---- entrance: the sheet is plotted, then the ink settles ---- */
+
+.brandcell { flex-direction: row; align-items: center; gap: var(--s3); }
+
+.wordmark-ai {
+  color: var(--blueprint);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.tb-name {
+  font-size: var(--t-lg);
+  font-weight: 620;
+  letter-spacing: -0.018em;
+  line-height: 1.15;
+}
+
+/* the frame rules draw across before anything else appears */
+.titleblock {
+  position: relative;
+  animation: settle .5s ease-out both;
+}
+
+.titleblock::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 1px;
+  background: var(--blueprint);
+  transform-origin: left center;
+  animation: rule-in .7s cubic-bezier(.2,.8,.2,1) .1s both,
+             rule-fade .5s ease-out .85s forwards;
+}
+
+@keyframes rule-in   { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes rule-fade { to { opacity: 0; } }
+
+.nav  { animation: settle .45s ease-out .22s both; }
+main  { animation: settle .5s ease-out .34s both; }
+
+@keyframes settle {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* the instrument rail arrives from the right, like a panel sliding in */
+.rail-r.panel { animation: panel-in .55s cubic-bezier(.2,.8,.2,1) .40s both; }
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---- nav: a sliding indicator, not four separate underlines ---- */
+
+.nav { position: relative; }
+
+.nav button {
+  position: relative;
+  border-bottom: 2px solid transparent;
+  transition: color .18s ease;
+}
+
+.nav button::after {
+  content: "";
+  position: absolute;
+  left: var(--s4); right: var(--s4); bottom: -1px;
+  height: 2px;
+  background: var(--blueprint);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .26s cubic-bezier(.2,.8,.2,1);
+}
+
+.nav button[aria-current="true"]::after { transform: scaleX(1); }
+.nav button:hover::after { transform: scaleX(.35); }
+
+/* ---- materiality --------------------------------------------------
+   Paper sits above paper. Shadows are offset and hard-edged like a
+   sheet lifted off a drawing board, never a soft generic glow. */
+
+.sheet-thumb img, .sheet-thumb .doc-face {
+  box-shadow: 4px 4px 0 var(--sheet-3), 0 1px 3px rgba(26,29,28,.07);
+  transition: transform .28s cubic-bezier(.2,.8,.2,1),
+              box-shadow .28s cubic-bezier(.2,.8,.2,1);
+}
+
+.sheet-thumb:hover img, .sheet-thumb:hover .doc-face {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--sheet-3), 0 4px 10px rgba(26,29,28,.10);
+}
+
+/* buttons: press, don't just change colour */
+.btn {
+  transition: background .14s ease, transform .1s ease, box-shadow .14s ease;
+  box-shadow: 0 1px 2px rgba(26,29,28,.14);
+}
+
+.btn:hover:not(:disabled)  { transform: translateY(-1px);
+                             box-shadow: 0 3px 7px rgba(26,29,28,.20); }
+.btn:active:not(:disabled) { transform: translateY(0);
+                             box-shadow: 0 1px 1px rgba(26,29,28,.16); }
+.btn:disabled              { box-shadow: none; }
+
+.chip { transition: border-color .16s ease, color .16s ease,
+                    background .16s ease, transform .12s ease; }
+.chip:hover  { transform: translateY(-1px); background: #fff; }
+.chip:active { transform: translateY(0); }
+
+/* file rows reveal a leading rule on hover, like a marked-up index */
+.filerow {
+  position: relative;
+  padding-left: 0;
+  transition: padding-left .18s ease, color .18s ease;
+}
+
+.filerow::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 50%;
+  width: 0; height: 1px;
+  background: var(--blueprint);
+  transition: width .18s ease;
+}
+
+.filerow:hover { padding-left: 13px; }
+.filerow:hover::before { width: 9px; }
+
+/* steps land rather than appear */
+.step { animation: step-in .34s cubic-bezier(.2,.8,.2,1) both; }
+
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.answer { animation: step-in .4s cubic-bezier(.2,.8,.2,1) .05s both; }
+
+.artifact {
+  transition: background .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+
+.artifact:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(45,106,79,.22);
+}
+
+/* the panel reading ticks over like an instrument */
+.reading .value { transition: color .3s ease; }
+
+.reading.state-trip .value { animation: alarm 1s steps(2) infinite; }
+
+@keyframes alarm { 50% { opacity: .45; } }

@@ -38,7 +38,9 @@ STOPWORDS = {
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
     "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
     "NO", "REV", "DOC", "ISO", "IEC", "API", "BS", "EN", "DIN",
-    "PO", "WO", "SR", "QTY", "PG", "FIG", "TEL", "FAX",
+    "PO", "WO", "SR", "QTY", "FIG", "TEL", "FAX",
+    # "PG" removed: PG-118 is a valid Pressure Gauge tag, and the
+    # regex requires a hyphen so "Page 1 of 2" never matched anyway.
 }
 
 # Strict: uppercase prefix, mandatory hyphen. Safe for prose.

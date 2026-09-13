@@ -299,6 +299,21 @@ async def upload(file: UploadFile = File(...)):
             "path": str(dest.relative_to(BASE_DIR)), "size": len(data)}
 
 
+@app.get("/api/preview")
+def preview(path: str):
+    """Serve a sample or uploaded file for display in the UI.
+
+    Scoped to data/ so the endpoint cannot be used to read the filesystem.
+    """
+    target = (BASE_DIR / path).resolve()
+    allowed = (BASE_DIR / "data").resolve()
+    if allowed not in target.parents:
+        raise HTTPException(403, "outside the data directory")
+    if not target.exists():
+        raise HTTPException(404, f"no such file: {path}")
+    return FileResponse(target)
+
+
 @app.get("/api/download/{filename}")
 def download(filename: str):
     safe = Path(filename).name

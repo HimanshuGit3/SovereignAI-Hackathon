@@ -7,3 +7,4 @@ data/vectorstore/
 outputs/*
 !outputs/.gitkeep
 *.log
+*.override.yml
