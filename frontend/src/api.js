@@ -40,6 +40,7 @@ export const api = {
   kbReindex: () => post('/api/kb/reindex'),
   kbAsk: (question) => post('/api/kb/ask', { task: question }),
 
+  metrics: () => get('/api/metrics'),
   egress: () => get('/api/monitor/egress'),
   egressReset: () => post('/api/monitor/egress/reset'),
   captureStart: () => post('/api/monitor/capture/start'),

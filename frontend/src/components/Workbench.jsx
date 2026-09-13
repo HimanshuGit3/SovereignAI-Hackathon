@@ -4,6 +4,8 @@ import { Tag, Zone, Empty } from './bits.jsx'
 import InstrumentRail from './InstrumentRail.jsx'
 import Hero from './Hero.jsx'
 import Upload from './Upload.jsx'
+import Canvas from './Canvas.jsx'
+import LiveStep from './LiveStep.jsx'
 
 const PRESETS = [
   ['Approval note', 'Read data/samples/inspection_report.png, extract the key findings and draft a formal approval note as a Word document called approval_note.docx'],
@@ -23,6 +25,8 @@ export default function Workbench({ health, models, egress, onDone }) {
   const [error, setError] = useState('')
   const [files, setFiles] = useState(null)
   const traceEnd = useRef(null)
+  const [clock, setClock] = useState(0)
+  const [docsOpen, setDocsOpen] = useState(false)
 
   const loadFiles = () => api.files().then(setFiles).catch(() => {})
   useEffect(() => { loadFiles() }, [])
@@ -30,6 +34,16 @@ export default function Workbench({ health, models, egress, onDone }) {
   useEffect(() => {
     traceEnd.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [steps, summary])
+
+  // A visible clock during long runs: the user should always know the
+  // system is working and roughly how long it has been.
+  useEffect(() => {
+    if (!running) return
+    const t0 = performance.now()
+    setClock(0)
+    const id = setInterval(() => setClock(performance.now() - t0), 100)
+    return () => clearInterval(id)
+  }, [running])
 
   async function run() {
     const t = task.trim()
@@ -80,7 +94,7 @@ export default function Workbench({ health, models, egress, onDone }) {
 
   return (
     <>
-      <aside className="rail col">
+      <aside className={`rail col ${docsOpen ? "open" : ""}`}>
         <div className="scroll pad stack">
           <Zone title="Documents">
             <Upload onUploaded={(f) => {
@@ -121,6 +135,17 @@ export default function Workbench({ health, models, egress, onDone }) {
       <section className="col grow">
         <div className="pad" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
           <div className="row" style={{ alignItems: 'flex-start' }}>
+            <button className="docbtn" onClick={() => setDocsOpen((v) => !v)}
+                    title="Documents">
+              <svg width="19" height="19" viewBox="0 0 20 20" fill="none"
+                   stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"
+                   strokeLinejoin="round">
+                <path d="M3 5.5 h5 l1.6 2 h7.4 v7.5 a1.5 1.5 0 0 1 -1.5 1.5 h-11
+                         a1.5 1.5 0 0 1 -1.5 -1.5 z" />
+              </svg>
+              <span className="docn">{(files?.uploads?.length || 0) +
+                                      (files?.samples?.length || 0)}</span>
+            </button>
             <textarea
               className="grow"
               rows={3}
@@ -131,9 +156,14 @@ export default function Workbench({ health, models, egress, onDone }) {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run()
               }}
             />
-            <button className="btn" onClick={run} disabled={running || !task.trim()}>
-              {running ? 'Working' : 'Run'}
-            </button>
+            <div className="col" style={{ gap: 6, alignItems: 'center' }}>
+              <button className="btn" onClick={run} disabled={running || !task.trim()}>
+                {running ? 'Working' : 'Run'}
+              </button>
+              {running && (
+                <span className="runclock">{(clock / 1000).toFixed(1)} s</span>
+              )}
+            </div>
           </div>
 
           <div className="wrap" style={{ marginTop: 12 }}>
@@ -150,6 +180,20 @@ export default function Workbench({ health, models, egress, onDone }) {
         <div className="scroll pad grow">
           {!routing && !steps.length && !error && (
             <Hero onRun={runWorkflow} disabled={running} />
+          )}
+
+          {(routing || steps.length > 0) && (
+            <div className="canvas-wrap" style={{ marginBottom: 18 }}>
+              <div className="canvas-head">
+                <div className="grow">
+                  <div className="ct">Workflow canvas</div>
+                  <div className="cs">Components that actually executed are marked</div>
+                </div>
+                {running && <span className="tag info">running</span>}
+                {!running && steps.length > 0 && <span className="tag service">complete</span>}
+              </div>
+              <Canvas steps={steps} running={running} routing={routing} />
+            </div>
           )}
 
           {routing && (
@@ -185,6 +229,15 @@ export default function Workbench({ health, models, egress, onDone }) {
                   {s.kind === 'final' && s.content && <div className="answer">{s.content}</div>}
                 </div>
               ))}
+              {running && !steps.some((s) => s.kind === 'final') && (
+                <LiveStep n={steps.length + 1} />
+              )}
+            </div>
+          )}
+
+          {running && steps.length === 0 && (
+            <div className="trace">
+              <LiveStep n={1} hint="routing" />
             </div>
           )}
 
@@ -209,6 +262,9 @@ export default function Workbench({ health, models, egress, onDone }) {
         models={models}
         summary={summary}
         running={running}
+        routing={routing}
+        steps={steps}
+        error={error}
       />
     </>
   )

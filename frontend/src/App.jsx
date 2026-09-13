@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from './api.js'
 import Mark from './components/Mark.jsx'
+import Backdrop from './components/Backdrop.jsx'
+import { NavIcon } from './components/glyphs.jsx'
+import Dashboard from './components/Dashboard.jsx'
 import Workbench from './components/Workbench.jsx'
 import Sovereignty from './components/Sovereignty.jsx'
 import Knowledge from './components/Knowledge.jsx'
 import Models from './components/Models.jsx'
 
 const SCREENS = [
+  { id: 'dashboard', label: 'Dashboard' },
   { id: 'workbench', label: 'Workbench' },
   { id: 'sovereignty', label: 'Sovereignty' },
   { id: 'knowledge', label: 'Knowledge base' },
@@ -35,6 +39,8 @@ export default function App() {
   const reachable = health?.inference_reachable
 
   return (
+    <>
+    <Backdrop />
     <div className="app">
       <header className="titleblock">
         <div className="tb-cell tb-grow brandcell">
@@ -66,6 +72,19 @@ export default function App() {
         </div>
 
         <div className="tb-cell">
+          <div className="classbar">
+            <svg width="13" height="14" viewBox="0 0 14 15" fill="none"
+                 stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"
+                 strokeLinejoin="round">
+              <path d="M7 1 l5.2 2.2 v4.3 c0 3.6 -2.2 6.2 -5.2 7.3
+                       c-3 -1.1 -5.2 -3.7 -5.2 -7.3 v-4.3 z" />
+              <path d="M4.8 7.4 l1.6 1.6 l3 -3.3" />
+            </svg>
+            <span>Confidential &mdash; processed on premises</span>
+          </div>
+        </div>
+
+        <div className="tb-cell">
           <div className="tb-key">Egress</div>
           <div className="tb-val">
             <span className={`lamp ${external > 0 ? 'off' : 'on'}`}>
@@ -75,19 +94,25 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="nav">
-        {SCREENS.map((s) => (
-          <button
-            key={s.id}
-            aria-current={screen === s.id}
-            onClick={() => setScreen(s.id)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </nav>
+      <div className="shell">
+        <nav className="sidebar">
+          {SCREENS.map((s) => (
+            <button key={s.id} aria-current={screen === s.id}
+                    onClick={() => setScreen(s.id)}>
+              <NavIcon id={s.id} />
+              <span>{s.label}</span>
+            </button>
+          ))}
+          <div className="side-foot">
+            <div className="side-card">
+              <div className="sc-title">SovereignAI</div>
+              <div className="sc-sub">Autonomous intelligence for confidential work</div>
+            </div>
+          </div>
+        </nav>
 
       <main>
+        {screen === 'dashboard' && <Dashboard egress={egress} health={health} models={models} />}
         {screen === 'workbench' && (
           <Workbench
             health={health}
@@ -100,6 +125,8 @@ export default function App() {
         {screen === 'knowledge' && <Knowledge />}
         {screen === 'models' && <Models />}
       </main>
+      </div>
     </div>
+    </>
   )
 }

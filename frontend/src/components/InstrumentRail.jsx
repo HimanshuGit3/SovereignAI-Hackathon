@@ -1,10 +1,13 @@
 import { ms } from '../api.js'
+import ExecutionLog, { buildLog } from './ExecutionLog.jsx'
 
 /* The one dark surface in the product. Everything a judge needs to
    believe the sovereignty claim is on screen at all times, alongside
    what the GPU is actually holding. */
 
-export default function InstrumentRail({ egress, health, models, summary, running }) {
+export default function InstrumentRail({ egress, health, models, summary,
+                                         running, routing, steps = [], error }) {
+  const log = buildLog(routing, steps, summary, running, error)
   const external = egress?.external_count ?? 0
   const total = egress?.total_requests ?? 0
   const clean = external === 0
@@ -61,6 +64,8 @@ export default function InstrumentRail({ egress, health, models, summary, runnin
           {health?.inference_endpoint}
         </div>
       </div>
+
+      <ExecutionLog entries={log} streaming={running} />
 
       {(summary || running) && (
         <>

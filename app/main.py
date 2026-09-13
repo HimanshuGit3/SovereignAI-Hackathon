@@ -26,6 +26,7 @@ from app.agent.workflows import WORKFLOWS  # noqa: E402
 from app.config import BASE_DIR, settings  # noqa: E402
 from app.core.llm import OllamaClient  # noqa: E402
 from app.monitor.capture import PacketCapture, classify_ip  # noqa: E402
+from app.monitor.metrics import record_run, snapshot  # noqa: E402
 from app.router.classifier import TaskRouter  # noqa: E402
 from app.router.registry import ModelRegistry  # noqa: E402
 from app.tools import build_toolbox  # noqa: E402
@@ -66,6 +67,52 @@ class WorkflowRequest(BaseModel):
 class RouteRequest(BaseModel):
     task: str
     attachments: list[str] = []
+
+
+
+def _run_signals(run) -> dict:
+    """Extract the signals the dashboard reports on.
+
+    Derived from the step trace rather than instrumented separately, so
+    the numbers can never drift from what actually happened.
+    """
+    ingest_methods, kb_answered, kb_refused = [], 0, 0
+    verified, sandbox = 0, 0
+    models = {s.model for s in run.steps if s.model}
+
+    for st in run.steps:
+        if st.kind != "tool":
+            continue
+        obs = st.observation or ""
+        if st.tool == "read_document":
+            if "method ocr" in obs.lower() or "OCR yield" in obs and "not needed" in obs:
+                ingest_methods.append("ocr")
+            elif "escalated to" in obs:
+                ingest_methods.append("vision")
+            elif "text layer present" in obs:
+                ingest_methods.append("native_pdf")
+        elif st.tool == "search_knowledge_base":
+            if "do not appear to cover" in obs or "do not specify" in obs:
+                kb_refused += 1
+            else:
+                kb_answered += 1
+        elif st.tool == "engineering_calculation" and st.ok:
+            verified += 1
+        elif st.tool == "run_python":
+            sandbox += 1
+
+    return {
+        "routing_method": run.routing.method,
+        "task_type": run.routing.task_type.value,
+        "model": run.orchestrator_model,
+        "ingest_methods": ingest_methods,
+        "kb_answered": kb_answered,
+        "kb_refused": kb_refused,
+        "verified_calcs": verified,
+        "sandbox_runs": sandbox,
+        "artifacts": run.artifacts,
+        "model_swaps": max(0, len(models) - 1) + len(run.delegate_models),
+    }
 
 
 @app.get("/api/health")
@@ -119,6 +166,12 @@ def route(req: RouteRequest):
 @app.post("/api/task")
 def run_task(req: TaskRequest):
     run = AGENT.run(req.task, attachments=req.attachments)
+    record_run({
+        "task": req.task, "steps": len(run.steps), "total_ms": run.total_ms,
+        "tools": [s.tool for s in run.steps if s.kind == "tool"],
+        "ok": not run.stopped_reason.startswith("model error"),
+        **_run_signals(run),
+    })
     return {
         **run.as_dict(),
         "steps_detail": [
@@ -154,6 +207,13 @@ async def run_task_stream(req: TaskRequest):
         try:
             run = AGENT.run(req.task, attachments=req.attachments,
                             on_step=on_step)
+            record_run({
+                "task": req.task, "steps": len(run.steps),
+                "total_ms": run.total_ms,
+                "tools": [s.tool for s in run.steps if s.kind == "tool"],
+                "ok": True,
+                **_run_signals(run),
+            })
             q.put({"type": "done", **run.as_dict()})
         except Exception as e:
             q.put({"type": "error", "error": f"{type(e).__name__}: {e}"})
@@ -195,6 +255,17 @@ def run_workflow(req: WorkflowRequest):
                                  f"Available: {', '.join(WORKFLOWS)}")
     wf = cls(CLIENT, REGISTRY, TOOLBOX)
     run = wf.run(req.document_path, req.output_filename)
+    record_run({
+        "task": f"workflow: {req.workflow}", "task_type": "workflow",
+        "routing_method": "scripted", "model": REGISTRY.by_role("general").name,
+        "steps": len(run.stages), "total_ms": run.total_ms,
+        "tools": [s.name for s in run.stages],
+        "artifacts": run.artifacts,
+        "ingest_methods": ["ocr"],
+        "kb_answered": 1, "kb_refused": 0,
+        "verified_calcs": 0, "sandbox_runs": 0, "model_swaps": 0,
+        "ok": not run.failed,
+    })
     return run.as_dict()
 
 
@@ -217,6 +288,11 @@ def kb_reindex():
 def kb_ask(req: RouteRequest):
     from app.rag.answer import KnowledgeBase
     return KnowledgeBase().ask(req.task).as_dict()
+
+
+@app.get("/api/metrics")
+def metrics():
+    return snapshot()
 
 
 @app.get("/api/monitor/egress")

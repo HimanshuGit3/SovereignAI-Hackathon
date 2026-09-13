@@ -46,9 +46,9 @@ export default function Upload({ onUploaded }) {
           accept={ACCEPT}
           onChange={(e) => send(Array.from(e.target.files))}
         />
-        {busy ? 'Reading the file' : (
+        {busy ? 'Uploading' : (
           <>
-            Drop a scan, photo or PDF here
+            Drop a scan or PDF
             <br />
             <span style={{ fontSize: 10.5 }}>or click to choose</span>
           </>

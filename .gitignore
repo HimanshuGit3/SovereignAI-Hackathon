@@ -8,3 +8,11 @@ outputs/*
 !outputs/.gitkeep
 *.log
 *.override.yml
+
+# frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# local dev only
+docker-compose.override.yml
